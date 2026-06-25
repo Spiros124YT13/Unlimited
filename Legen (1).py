@@ -26,145 +26,288 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-TICKET_CATEGORY_NAME = "TICKETS"
-STAFF_ROLE_NAME = "Support"
+import discord
+from discord.ext import commands
+from discord.ui import View, Select, Button
 
-TICKET_CATEGORY_ID = 1411103018115403776
-STAFF_ROLE_ID = 1366509730583023768
+TOKEN = "BOT_TOKEN"
 
-class TicketSelect(discord.ui.Select):
+ALLOWED_ROLE_ID = 000000000000000
+
+OWNER_ROLE_ID = 000000000000000
+STAFF_ROLE_ID = 000000000000000
+DONATE_MANAGER_ROLE_ID = 000000000000000
+
+TICKET_CATEGORY_ID = 000000000000000
+DONATE_CATEGORY_ID = 000000000000000
+APPLICATION_CATEGORY_ID = 000000000000000
+
+class TicketSelect(Select):
     def __init__(self):
+
         options = [
-            discord.SelectOption(label="Support", emoji="🛠️", description="Βοήθεια / Υποστήριξη"),
-            discord.SelectOption(label="Report", emoji="⚠️", description="Αναφορά χρήστη / bug"),
-            discord.SelectOption(label="Appeal", emoji="📨", description="Αίτηση / Unban appeal"),
+            discord.SelectOption(
+                label="Owner Ticket",
+                emoji="👑",
+                value="owner"
+            ),
+            discord.SelectOption(
+                label="Staff Ticket",
+                emoji="🛡️",
+                value="staff"
+            ),
+            discord.SelectOption(
+                label="Report Player",
+                emoji="📄",
+                value="report"
+            ),
+            discord.SelectOption(
+                label="Other",
+                emoji="❓",
+                value="other"
+            ),
+            discord.SelectOption(
+                label="Support Ticket",
+                emoji="🎫",
+                value="support"
+            ),
+            discord.SelectOption(
+                label="Ban Appeal",
+                emoji="🔨",
+                value="banappeal"
+            ),
+            discord.SelectOption(
+                label="Bug Report",
+                emoji="🐛",
+                value="bug"
+            )
         ]
 
         super().__init__(
-            placeholder="Επίλεξε κατηγορία ticket...",
+            placeholder="Select Ticket Category",
             min_values=1,
             max_values=1,
-            options=options,
-            custom_id="ticket_select_v2"
+            options=options
         )
 
     async def callback(self, interaction: discord.Interaction):
+
         guild = interaction.guild
-        user = interaction.user
-        category = guild.get_channel(TICKET_CATEGORY_ID)
-
-        if category is None:
-            return await interaction.response.send_message(
-                "❌ Δεν βρέθηκε η κατηγορία ticket.", ephemeral=True
-            )
-
-        # Έλεγχος αν έχει ήδη ticket
-        existing = discord.utils.get(guild.text_channels, name=f"ticket-{user.id}")
-        if existing:
-            return await interaction.response.send_message(
-                f"Έχεις ήδη ticket: {existing.mention}", ephemeral=True
-            )
+        choice = self.values[0]
 
         overwrites = {
-            guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            guild.get_role(STAFF_ROLE_ID): discord.PermissionOverwrite(
-                view_channel=True, send_messages=True, read_message_history=True
+            guild.default_role: discord.PermissionOverwrite(
+                view_channel=False
             ),
-            user: discord.PermissionOverwrite(
-                view_channel=True, send_messages=True, read_message_history=True
+            interaction.user: discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True
             )
         }
 
         channel = await guild.create_text_channel(
-            name=f"ticket-{user.id}",
-            category=category,
+            name=f"{choice}-{interaction.user.name}",
             overwrites=overwrites,
-            reason=f"Ticket από {user}"
-        )
-
-        embed = discord.Embed(
-            title=f"🎫 Ticket: {self.values[0]}",
-            description="Πες μας το θέμα σου. Όταν τελειώσεις, πάτα **Κλείσιμο Ticket**.",
-            color=discord.Color.green()
-        )
-
-        await channel.send(
-            content=f"{user.mention} <@&{STAFF_ROLE_ID}>",
-            embed=embed,
-            view=TicketCloseView()
+            category=discord.utils.get(
+                guild.categories,
+                id=TICKET_CATEGORY_ID
+            )
         )
 
         await interaction.response.send_message(
-            f"✅ Το ticket σου δημιουργήθηκε: {channel.mention}",
+            f"Ticket Created: {channel.mention}",
             ephemeral=True
         )
 
-
-# ======================================================
-#   VIEW ΓΙΑ ΤΟ SELECT MENU
-# ======================================================
-class TicketSelectView(discord.ui.View):
+class TicketView(View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(TicketSelect())
 
+@bot.command()
+async def ticketpanel(ctx):
 
-# ======================================================
-#   VIEW ΓΙΑ ΚΛΕΙΣΙΜΟ TICKET
-# ======================================================
-class TicketCloseView(discord.ui.View):
+    embed = discord.Embed(
+        title="🎫 Ticket System",
+        description="Choose a category below.",
+        color=discord.Color.blue()
+    )
+
+    await ctx.send(
+        embed=embed,
+        view=TicketView()
+    )
+
+class ApplicationView(View):
+
     def __init__(self):
         super().__init__(timeout=None)
 
     @discord.ui.button(
-        label="🔒 Κλείσιμο Ticket",
-        style=discord.ButtonStyle.danger,
-        custom_id="close_ticket_btn_v2"
+        label="Management",
+        style=discord.ButtonStyle.primary
     )
-    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-
-        channel = interaction.channel
-
-        if not channel.name.startswith("ticket-"):
-            return await interaction.response.send_message(
-                "❌ Αυτό δεν είναι ticket.", ephemeral=True
-            )
-
+    async def management(
+        self,
+        interaction,
+        button
+    ):
         await interaction.response.send_message(
-            "🔒 Το ticket θα κλείσει σε 5 δευτερόλεπτα...", ephemeral=True
+            "Management Application Started",
+            ephemeral=True
         )
 
-        await discord.utils.sleep_until(
-            discord.utils.utcnow() + discord.utils.timedelta(seconds=5)
-        )
-
-        await channel.delete(reason=f"Closed by {interaction.user}")
-
-
-# ======================================================
-#   COMMAND: !ticketsetup (Container V2)
-# ======================================================
-@bot.command()
-async def ticketsetup(ctx):
-    embed = discord.Embed(
-        title="🎫 Ticket Panel (Container V2)",
-        description=(
-            "**Καλωσήρθες στο AP-style Ticket System!**\n"
-            "Επίλεξε κατηγορία από το menu παρακάτω."
-        ),
-        color=discord.Color.blurple()
+    @discord.ui.button(
+        label="Staff",
+        style=discord.ButtonStyle.success
     )
+    async def staff(
+        self,
+        interaction,
+        button
+    ):
+        await interaction.response.send_message(
+            "Staff Application Started",
+            ephemeral=True
+        )
 
-    # Banner (εσύ βάζεις όποια εικόνα θέλεις)
-    file = discord.File("banner.png", filename="banner.png")
+    @discord.ui.button(
+        label="Police",
+        style=discord.ButtonStyle.secondary,
+        disabled=True
+    )
+    async def police(
+        self,
+        interaction,
+        button
+    ):
+        pass
 
-    embed.set_image(url="https://imgur.com/a/1ZVby8N")
+    @discord.ui.button(
+        label="EKAB",
+        style=discord.ButtonStyle.secondary,
+        disabled=True
+    )
+    async def ekab(
+        self,
+        interaction,
+        button
+    ):
+        pass
+
+@bot.command()
+async def applications(ctx):
+
+    embed = discord.Embed(
+        title="📋 Applications",
+        description="Choose a department.",
+        color=discord.Color.green()
+    )
 
     await ctx.send(
         embed=embed,
-        file=file,
-        view=TicketSelectView()
+        view=ApplicationView()
     )
+
+@bot.command()
+async def help(ctx):
+
+    embed = discord.Embed(
+        title="📚 Commands",
+        color=discord.Color.orange()
+    )
+
+    embed.add_field(
+        name="Panels",
+        value="""
+!ticketpanel
+!applications
+!donatepanel
+!civilianjobs
+!criminaljobs
+""",
+        inline=False
+    )
+
+    embed.add_field(
+        name="Admin",
+        value="""
+!createlogs
+!status
+!say
+!say2
+!say3
+""",
+        inline=False
+    )
+
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def say(ctx, *, message):
+
+    if not has_access(ctx.author):
+        return
+
+    embed = discord.Embed(
+        description=message,
+        color=discord.Color.blue()
+    )
+
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def say2(ctx, *, message):
+
+    if not has_access(ctx.author):
+        return
+
+    embed = discord.Embed(
+        title="Announcement",
+        description=message,
+        color=discord.Color.green()
+    )
+
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def say3(ctx, *, message):
+
+    if not has_access(ctx.author):
+        return
+
+    await ctx.send(message)
+
+@bot.command()
+async def createlogs(ctx):
+
+    if not has_access(ctx.author):
+        return
+
+    category = await ctx.guild.create_category(
+        "📁 LOGS"
+    )
+
+    logs = [
+        "join-logs",
+        "role-logs",
+        "channel-logs",
+        "message-logs",
+        "ban-logs",
+        "kick-logs",
+        "voice-logs",
+        "timeout-logs",
+        "invite-logs",
+        "application-logs"
+    ]
+
+    for log in logs:
+        await ctx.guild.create_text_channel(
+            log,
+            category=category
+        )
+
+    await ctx.send("Logs Created")
 
 # =========================
 # RUN BOT
